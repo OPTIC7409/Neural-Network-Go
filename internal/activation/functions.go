@@ -58,3 +58,17 @@ func SoftmaxPrime(x []float64) []float64 {
 
 	return result
 }
+
+func LeakyReLU(x float64) float64 {
+	if x > 0 {
+		return x
+	}
+	return 0.01 * x
+}
+
+func LeakyReLUPrime(x float64) float64 {
+	if x > 0 {
+		return 1
+	}
+	return 0.01
+}

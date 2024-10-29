@@ -1,7 +1,10 @@
 package network
 
+import "math/rand"
+
 type Network struct {
-	Layers []*Layer
+	DropoutRate float64
+	Layers      []*Layer
 }
 
 func NewNetwork(layerSizes []int, activationFuncs []ActivationFunc, activationPrimes []ActivationFunc) *Network {
@@ -41,14 +44,51 @@ func NewNetworkWithSliceOutput(layerSizes []int, activationFuncs []ActivationFun
 	}
 }
 
-func (n *Network) Forward(inputs []float64) []float64 {
+func (n *Network) Predict(inputs []float64) []float64 {
+	return n.Forward(inputs, true)
+}
+
+func NewNetworkWithDropout(layerSizes []int, activationFuncs, activationPrimes []ActivationFunc, dropoutRate float64) *Network {
+	if len(layerSizes) < 2 {
+		panic("Network must have at least an input and output layer")
+	}
+	if len(activationFuncs) != len(layerSizes)-1 || len(activationPrimes) != len(layerSizes)-1 {
+		panic("Must provide activation function and its derivative for each hidden and output layer")
+	}
+
+	layers := make([]*Layer, len(layerSizes)-1)
+	for i := range layers {
+		layers[i] = NewLayer(layerSizes[i], layerSizes[i+1], activationFuncs[i], activationPrimes[i])
+	}
+
+	return &Network{
+		Layers:      layers,
+		DropoutRate: dropoutRate,
+	}
+}
+
+func (n *Network) Forward(inputs []float64, isTraining bool) []float64 {
 	currentOutput := inputs
-	for _, layer := range n.Layers {
+	for i, layer := range n.Layers {
 		currentOutput = layer.Forward(currentOutput)
+		if isTraining && i < len(n.Layers)-1 { // Apply dropout only to hidden layers
+			currentOutput = applyDropout(currentOutput, n.DropoutRate)
+		}
 	}
 	return currentOutput
 }
 
-func (n *Network) Predict(inputs []float64) []float64 {
-	return n.Forward(inputs)
+func applyDropout(output []float64, dropoutRate float64) []float64 {
+	dropoutMask := make([]float64, len(output))
+	for i := range output {
+		if rand.Float64() > dropoutRate {
+			dropoutMask[i] = 1.0
+		} else {
+			dropoutMask[i] = 0.0
+		}
+	}
+	for i := range output {
+		output[i] *= dropoutMask[i]
+	}
+	return output
 }

@@ -5,10 +5,11 @@ import (
 )
 
 type Trainer struct {
-	Network      *network.Network
-	LossFunc     LossFunction
-	LossPrime    func(predicted, target []float64) []float64
-	LearningRate float64
+	Network              *network.Network
+	LossFunc             LossFunction
+	LossPrime            func(predicted, target []float64) []float64
+	LearningRate         float64
+	L2RegularizationRate float64
 }
 
 func NewTrainer(net *network.Network, lossFunc LossFunction, lossPrime func(predicted, target []float64) []float64, learningRate float64) *Trainer {
@@ -21,7 +22,6 @@ func NewTrainer(net *network.Network, lossFunc LossFunction, lossPrime func(pred
 }
 
 func (t *Trainer) Train(input, target []float64) float64 {
-	// Forward pass
 	activations := [][]float64{input}
 	for _, layer := range t.Network.Layers {
 		output := layer.Forward(activations[len(activations)-1])
@@ -39,7 +39,7 @@ func (t *Trainer) Train(input, target []float64) float64 {
 			gradient := deltas[j] * layer.ActivationPrime(neuron.Output)
 
 			for k, input := range activations[i] {
-				neuron.Weights[k] -= t.LearningRate * gradient * input
+				neuron.Weights[k] -= t.LearningRate * (gradient*input + t.L2RegularizationRate*neuron.Weights[k])
 				nextDeltas[k] += gradient * neuron.Weights[k]
 			}
 			neuron.Bias -= t.LearningRate * gradient
@@ -67,4 +67,19 @@ func (t *Trainer) TrainBatch(inputs, targets [][]float64, epochs int) []float64 
 	}
 
 	return losses
+
+}
+
+func NewTrainerWithL2(net *network.Network, lossFunc LossFunction, lossPrime func(predicted, target []float64) []float64, learningRate, l2Rate float64) *Trainer {
+	return &Trainer{
+		Network:              net,
+		LossFunc:             lossFunc,
+		LossPrime:            lossPrime,
+		LearningRate:         learningRate,
+		L2RegularizationRate: l2Rate,
+	}
+}
+
+func (t *Trainer) SetLearningRate(rate float64) {
+	t.LearningRate = rate
 }
